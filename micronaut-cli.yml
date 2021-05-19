@@ -1,0 +1,6 @@
+applicationType: default
+defaultPackage: com.github.kolegran
+testFramework: junit
+sourceLanguage: java
+buildTool: gradle
+features: [ annotation-api, app-name, aws-lambda, gradle, java, java-application, junit, netty-server, readme, shade, slf4j-simple, yaml ]
