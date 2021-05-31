@@ -5,6 +5,7 @@ build/
 target/
 out/
 .idea
+!.idea/runConfigurations/ImageCollectorApplication.xml
 *.iml
 *.ipr
 *.iws
@@ -12,3 +13,5 @@ out/
 .settings
 .classpath
 .factorypath
+
+.localstack
