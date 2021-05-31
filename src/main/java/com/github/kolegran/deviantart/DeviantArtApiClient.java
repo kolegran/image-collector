@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.kolegran.deviantart.configuration.DeviantArtConfiguration;
 import com.github.kolegran.deviantart.image.ImageInfo;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.inject.Singleton;
 import java.net.URI;
@@ -25,6 +27,7 @@ import static java.util.Objects.isNull;
 @Singleton
 class DeviantArtApiClient {
 
+    private static final Logger logger = LoggerFactory.getLogger(DeviantArtApiClient.class);
     private static final String AUTH_RESULT_KEY = "authResultKey";
 
     private final Map<String, AuthorizationResult> authResultCache = new ConcurrentHashMap<>();
@@ -42,43 +45,46 @@ class DeviantArtApiClient {
         final Map<String, List<ImageInfo>> result = new HashMap<>();
 
         for (DATag daTag : parameters.getTags()) {
-            authorizeWhenExpirationTimeIsUp();
-            final String accessToken = authResultCache.get(AUTH_RESULT_KEY).getAccessToken();
+            final AuthorizationResult authResult = authorizeWhenExpirationTimeIsUp();
 
-            final String browseTagUrl = String.format(DEVIANT_ART_API_BROWSE_TAGS_URL, daTag.getTag(), daTag.getOffset(), daTag.getLimit(), accessToken);
+            final String browseTagUrl = getFormat(daTag, authResult);
             final HttpResponse<String> response = sendHttpRequest(createHttpRequest(browseTagUrl));
 
             try {
                 final ImageInfo imageInfo = objectMapper.readValue(response.body(), ImageInfo.class);
                 result.computeIfAbsent(daTag.getTag(), k -> new ArrayList<>()).add(imageInfo);
             } catch (JsonProcessingException e) {
-                // TODO: add slf4j logger
+                logger.error("Cannot parse response body to the ImageInfo object");
             }
         }
         return result;
     }
 
-    private void authorizeWhenExpirationTimeIsUp() {
-        final AuthorizationResult authResult = authResultCache.get(AUTH_RESULT_KEY);
-        if (isNull(authResult)) {
-            authorize();
-            return;
-        }
+    private AuthorizationResult authorizeWhenExpirationTimeIsUp() {
+        return authResultCache.compute(AUTH_RESULT_KEY, (k, existingAuthResult) -> {
+            if (isNull(existingAuthResult)) {
+                return authorize();
+            }
 
-        final LocalDateTime expirationTimeMinus5Minutes = authResult.getExpirationTime().minus(5, ChronoUnit.MINUTES);
-        if (LocalDateTime.now().isBefore(expirationTimeMinus5Minutes)) {
-            authorize();
+            final LocalDateTime expirationTimeMinus5Minutes = existingAuthResult.getExpirationTime().minus(5, ChronoUnit.MINUTES);
+            return LocalDateTime.now().isBefore(expirationTimeMinus5Minutes)
+                ? authorize()
+                : existingAuthResult;
+        });
+    }
+
+    private AuthorizationResult authorize() {
+        final HttpResponse<String> httpResponse = sendHttpRequest(createHttpRequest(deviantArtConfiguration.getAuthorizationUrl()));
+        try {
+            return new ObjectMapper().readValue(httpResponse.body(), AuthorizationResult.class);
+        } catch (JsonProcessingException e) {
+            logger.error("Cannot parse response body to the AuthorizationResult object");
+            throw new DAAuthorizationException("Cannot authorize: " + httpResponse.statusCode());
         }
     }
 
-    private void authorize() {
-        final HttpResponse<String> httpResponse = sendHttpRequest(createHttpRequest(deviantArtConfiguration.getAuthorizationUrl()));
-        try {
-            final AuthorizationResult authorizationResult = new ObjectMapper().readValue(httpResponse.body(), AuthorizationResult.class);
-            authResultCache.put(AUTH_RESULT_KEY, authorizationResult);
-        } catch (JsonProcessingException e) {
-            // TODO: add slf4j logger
-        }
+    private String getFormat(DATag daTag, AuthorizationResult authResult) {
+        return String.format(DEVIANT_ART_API_BROWSE_TAGS_URL, daTag.getTag(), daTag.getOffset(), daTag.getLimit(), authResult.getAccessToken());
     }
 
     private HttpResponse<String> sendHttpRequest(HttpRequest httpRequest) {
@@ -101,6 +107,13 @@ class DeviantArtApiClient {
     private static final class HttpCallException extends RuntimeException {
 
         private HttpCallException(String message) {
+            super(message);
+        }
+    }
+
+    private static final class DAAuthorizationException extends RuntimeException {
+
+        public DAAuthorizationException(String message) {
             super(message);
         }
     }
