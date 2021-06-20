@@ -7,13 +7,13 @@ import java.util.List;
 @Introspected
 class DARequestParameters {
 
-    private final List<DATag> tags;
+    private final List<DATagInfo> tags;
 
-    DARequestParameters(List<DATag> tags) {
+    DARequestParameters(List<DATagInfo> tags) {
         this.tags = tags;
     }
 
-    public List<DATag> getTags() {
+    public List<DATagInfo> getTags() {
         return tags;
     }
 }

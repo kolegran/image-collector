@@ -3,11 +3,13 @@ package com.github.kolegran.deviantart;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.kolegran.deviantart.configuration.DeviantArtConfiguration;
+import com.github.kolegran.deviantart.image.Image;
 import com.github.kolegran.deviantart.image.ImageInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Singleton;
+import java.io.File;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -24,6 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import static com.github.kolegran.deviantart.configuration.DeviantArtConfiguration.DEVIANT_ART_API_BROWSE_TAGS_URL;
 import static java.util.Objects.isNull;
 
+// TODO: split http client and service logic
 @Singleton
 class DeviantArtApiClient {
 
@@ -41,23 +44,54 @@ class DeviantArtApiClient {
         this.objectMapper = new ObjectMapper();
     }
 
-    Map<String, List<ImageInfo>> browseTopImagesByTag(DARequestParameters parameters) {
+    private Map<String, List<ImageInfo>> browse(DARequestParameters parameters) {
         final Map<String, List<ImageInfo>> result = new HashMap<>();
 
-        for (DATag daTag : parameters.getTags()) {
-            final AuthorizationResult authResult = authorizeWhenExpirationTimeIsUp();
+        for (DATagInfo daTagInfo : parameters.getTags()) {
 
-            final String browseTagUrl = getFormat(daTag, authResult);
+            // TODO: fix repeated token generation
+            final AuthorizationResult authResult = authorizeWhenExpirationTimeIsUp();
+            System.out.println(authResult.getAccessToken());
+
+            final String browseTagUrl = getFormat(daTagInfo, authResult);
             final HttpResponse<String> response = sendHttpRequest(createHttpRequest(browseTagUrl));
 
             try {
                 final ImageInfo imageInfo = objectMapper.readValue(response.body(), ImageInfo.class);
-                result.computeIfAbsent(daTag.getTag(), k -> new ArrayList<>()).add(imageInfo);
+                result.computeIfAbsent(daTagInfo.getTag(), k -> new ArrayList<>()).add(imageInfo);
             } catch (JsonProcessingException e) {
                 logger.error("Cannot parse response body to the ImageInfo object");
             }
         }
         return result;
+    }
+
+    private Map<String, List<ImageInfo>> isImageDownloadable(Map<String, List<ImageInfo>> imagesByTag) {
+        final Map<String, List<ImageInfo>> copied = new HashMap<>(imagesByTag);
+        for (Map.Entry<String, List<ImageInfo>> entry : copied.entrySet()) {
+            for (ImageInfo imageInfo : entry.getValue()) {
+                imageInfo.getImages().removeIf(Image::getDownloadable);
+            }
+        }
+        return copied;
+    }
+
+    private Map<String, List<File>> createImageFiles(Map<String, List<ImageInfo>> downloadableImages) {
+        final Map<String, List<File>> files = new HashMap<>();
+        for (Map.Entry<String, List<ImageInfo>> entry : downloadableImages.entrySet()) {
+            for (ImageInfo imageInfo : entry.getValue()) {
+                for (Image image : imageInfo.getImages()) {
+                    try {
+                        final String accessToken = authorizeWhenExpirationTimeIsUp().getAccessToken();
+                        final String url = String.format(DeviantArtConfiguration.DEVIANT_ART_API_DOWNLOAD_IMAGE_URL, image.getDeviationId(), accessToken);
+                        files.computeIfAbsent(entry.getKey(), k -> new ArrayList<>()).add(new File(url));
+                    } catch (Exception e) {
+                        logger.error("Cannot create file for: {}, {}", image.getDeviationId(), image.getImageUrl());
+                    }
+                }
+            }
+        }
+        return files;
     }
 
     private AuthorizationResult authorizeWhenExpirationTimeIsUp() {
@@ -83,8 +117,8 @@ class DeviantArtApiClient {
         }
     }
 
-    private String getFormat(DATag daTag, AuthorizationResult authResult) {
-        return String.format(DEVIANT_ART_API_BROWSE_TAGS_URL, daTag.getTag(), daTag.getOffset(), daTag.getLimit(), authResult.getAccessToken());
+    private String getFormat(DATagInfo daTagInfo, AuthorizationResult authResult) {
+        return String.format(DEVIANT_ART_API_BROWSE_TAGS_URL, daTagInfo.getTag(), daTagInfo.getOffset(), daTagInfo.getLimit(), authResult.getAccessToken());
     }
 
     private HttpResponse<String> sendHttpRequest(HttpRequest httpRequest) {

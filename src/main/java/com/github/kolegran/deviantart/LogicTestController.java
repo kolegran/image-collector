@@ -1,7 +1,6 @@
 package com.github.kolegran.deviantart;
 
 import com.github.kolegran.aws.s3.AwsS3Client;
-import com.github.kolegran.deviantart.image.ImageInfo;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
 
@@ -22,16 +21,16 @@ public class LogicTestController {
     }
 
     @Get
-    public Map<String, List<ImageInfo>> getImagesInfo() {
-        final List<DATag> daTags = List.of(
-            new DATag("cat", 1, 10),
-            new DATag("anime", 2, 10)
+    public void getImagesInfo() {
+        final List<DATagInfo> daTagInfos = List.of(
+            new DATagInfo("cat", 1, 10),
+            new DATagInfo("anime", 2, 10)
         );
-        return deviantArtApiClient.browseTopImagesByTag(new DARequestParameters(daTags));
+//        deviantArtApiClient.browseTopImages(new DARequestParameters(daTagInfos));
     }
 
     @Get("/s3/image-urls")
-    public Map<String, List<URL>> getUrls() {
-        return awsS3Client.getImageUrlsByTag(List.of("cat"));
+    public Map<String, List<URL>> getUrlsByTag() {
+        return awsS3Client.getImageUrlsByFolderName(List.of("cat"));
     }
 }

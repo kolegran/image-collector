@@ -39,13 +39,17 @@ public class AwsS3Client {
         this.bucket = amazonS3.createBucket(bucketName);
     }
 
-    public Map<String, List<URL>> getImageUrlsByTag(List<String> tags) {
+    public void saveToBucket() {
+        // TODO: implement
+    }
+
+    public Map<String, List<URL>> getImageUrlsByFolderName(List<String> tags) {
         final String bucketName = bucket.getName();
         if (!amazonS3.doesBucketExistV2(bucketName)) {
             throw new NoSuchBucketException("Bucket does not exist: " + bucketName);
         }
 
-        final Map<String, List<URL>> result = new HashMap<>(); // tag, links on images from S3
+        final Map<String, List<URL>> result = new HashMap<>(); // contains tag as key and links on images from S3 as value
         for (String tag : tags) {
             // TODO: handle the case when there is no tag on the S3
             final ObjectListing objectListing = amazonS3.listObjects(bucketName, tag);

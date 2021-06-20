@@ -14,7 +14,7 @@ public class ImageInfo {
     private Integer nextOffset;
 
     @JsonProperty("results")
-    private List<ImageDetails> imageDetails;
+    private List<Image> images;
 
     public Integer getNextOffset() {
         return nextOffset;
@@ -24,19 +24,19 @@ public class ImageInfo {
         this.nextOffset = nextOffset;
     }
 
-    public List<ImageDetails> getImageDetails() {
-        return imageDetails;
+    public List<Image> getImages() {
+        return images;
     }
 
-    public void setImageDetails(List<ImageDetails> imageDetails) {
-        this.imageDetails = imageDetails;
+    public void setImages(List<Image> images) {
+        this.images = images;
     }
 
     @Override
     public String toString() {
         return "ImageInfo{" +
             "nextOffset=" + nextOffset +
-            ", imageDetails=" + imageDetails +
+            ", imageDetails=" + images +
             '}';
     }
 }

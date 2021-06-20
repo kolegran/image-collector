@@ -6,7 +6,7 @@ import io.micronaut.core.annotation.Introspected;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 @Introspected
-public class ImageDetails {
+public class Image {
 
     @JsonProperty("deviationid")
     private String deviationId;

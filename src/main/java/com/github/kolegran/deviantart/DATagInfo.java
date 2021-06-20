@@ -3,13 +3,13 @@ package com.github.kolegran.deviantart;
 import io.micronaut.core.annotation.Introspected;
 
 @Introspected
-class DATag {
+class DATagInfo {
 
     private final String tag;
     private final Integer limit;
-    private final Integer offset; // TODO: A1
+    private final Integer offset;
 
-    DATag(String tag, Integer limit, Integer offset) {
+    DATagInfo(String tag, Integer limit, Integer offset) {
         this.tag = tag;
         this.limit = limit;
         this.offset = offset;
