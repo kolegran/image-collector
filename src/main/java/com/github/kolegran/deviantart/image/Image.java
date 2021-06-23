@@ -131,7 +131,7 @@ public class Image {
 
     @Override
     public String toString() {
-        return "ImageDetails{" +
+        return "Image{" +
             "deviationId='" + deviationId + '\'' +
             ", imageUrl='" + imageUrl + '\'' +
             ", title='" + title + '\'' +
