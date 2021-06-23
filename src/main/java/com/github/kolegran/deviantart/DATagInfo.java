@@ -5,9 +5,9 @@ import io.micronaut.core.annotation.Introspected;
 @Introspected
 class DATagInfo {
 
-    private final String tag;
-    private final Integer limit;
-    private final Integer offset;
+    private String tag;
+    private Integer limit;
+    private Integer offset;
 
     DATagInfo(String tag, Integer limit, Integer offset) {
         this.tag = tag;
@@ -25,5 +25,17 @@ class DATagInfo {
 
     public Integer getOffset() {
         return offset;
+    }
+
+    public void setTag(String tag) {
+        this.tag = tag;
+    }
+
+    public void setLimit(Integer limit) {
+        this.limit = limit;
+    }
+
+    public void setOffset(Integer offset) {
+        this.offset = offset;
     }
 }

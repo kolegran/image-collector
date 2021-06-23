@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import static com.github.kolegran.deviantart.configuration.DeviantArtConfiguration.DEVIANT_ART_API_BROWSE_TAGS_URL;
 import static java.util.Objects.isNull;
@@ -44,7 +45,45 @@ class DeviantArtApiClient {
         this.objectMapper = new ObjectMapper();
     }
 
-    private Map<String, List<ImageInfo>> browse(DARequestParameters parameters) {
+    // TODO: refactor this method
+    Map<String, List<File>> browseTopImages(DARequestParameters parameters, Map<String, List<File>> result) {
+        if (parameters.getTags().isEmpty()) {
+            return result;
+        }
+
+        final Map<String, List<ImageInfo>> imagesByTag = browse(parameters);
+        if (imagesIsExisting(imagesByTag).isEmpty()) {
+            return result;
+        }
+
+        final Map<String, List<ImageInfo>> downloadableImages = isImageDownloadable(imagesByTag);
+        final List<DATagInfo> tags = new ArrayList<>();
+        for (DATagInfo daTag : parameters.getTags()) {
+
+            final String tag = daTag.getTag();
+            for (ImageInfo imageInfo : downloadableImages.get(tag)) {
+                if (!daTag.getLimit().equals(imageInfo.getImages().size())) {
+                    final Integer nextOffset = imageInfo.getNextOffset();
+                    daTag.setOffset(nextOffset);
+                    tags.add(daTag);
+                } else {
+                    final Map<String, List<File>> images = createImageFiles(Map.of(tag, List.of(imageInfo)));
+                    result.putAll(images);
+                }
+            }
+        }
+
+        result.putAll(browseTopImages(new DARequestParameters(tags), result));
+        return result;
+    }
+
+    private Map<String, List<ImageInfo>> imagesIsExisting(Map<String, List<ImageInfo>> imagesByTag) {
+        return imagesByTag.entrySet().stream()
+            .filter(e -> !e.getValue().isEmpty())
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
+    Map<String, List<ImageInfo>> browse(DARequestParameters parameters) {
         final Map<String, List<ImageInfo>> result = new HashMap<>();
 
         for (DATagInfo daTagInfo : parameters.getTags()) {
@@ -70,7 +109,7 @@ class DeviantArtApiClient {
         final Map<String, List<ImageInfo>> copied = new HashMap<>(imagesByTag);
         for (Map.Entry<String, List<ImageInfo>> entry : copied.entrySet()) {
             for (ImageInfo imageInfo : entry.getValue()) {
-                imageInfo.getImages().removeIf(Image::getDownloadable);
+                imageInfo.getImages().removeIf(image -> ! image.getDownloadable());
             }
         }
         return copied;
